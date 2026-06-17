@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Linux Ethernet Vendors</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f7f8fb;
+      --panel: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --border: #d9dee8;
+      --accent: #0f766e;
+      --accent-soft: #d9f4ef;
+      --yes: #047857;
+      --no: #9f1239;
+      --row: #fbfcfe;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font: 14px/1.45 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    main {
+      width: min(1180px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 28px 0 36px;
+    }
+
+    h1 {
+      margin: 0 0 18px;
+      font-size: 28px;
+      font-weight: 720;
+      letter-spacing: 0;
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) auto auto auto;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+
+    .search {
+      width: 100%;
+      min-height: 38px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 11px;
+      color: var(--text);
+      background: var(--panel);
+      font: inherit;
+      outline: none;
+    }
+
+    .search:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+
+    .check {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 38px;
+      padding: 0 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--panel);
+      color: var(--text);
+      white-space: nowrap;
+      user-select: none;
+    }
+
+    .check input {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--accent);
+    }
+
+    .count {
+      min-width: 86px;
+      color: var(--muted);
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .table-wrap {
+      overflow: auto;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    table {
+      width: 100%;
+      min-width: 820px;
+      border-collapse: collapse;
+    }
+
+    th,
+    td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      vertical-align: middle;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: #eef2f7;
+      color: #374151;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0;
+    }
+
+    tbody tr:nth-child(even) {
+      background: var(--row);
+    }
+
+    tbody tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .vendor {
+      font-weight: 620;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 44px;
+      min-height: 24px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .pill.yes {
+      color: var(--yes);
+      background: #dff7ea;
+    }
+
+    .pill.no {
+      color: var(--no);
+      background: #fde5eb;
+    }
+
+    .empty {
+      padding: 26px 12px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    @media (max-width: 720px) {
+      main {
+        width: min(100vw - 20px, 1180px);
+        padding-top: 18px;
+      }
+
+      h1 {
+        font-size: 22px;
+      }
+
+      .toolbar {
+        grid-template-columns: 1fr;
+      }
+
+      .count {
+        text-align: left;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Linux Ethernet Vendors</h1>
+    <div class="toolbar" aria-label="Table filters">
+      <input id="search" class="search" type="search" placeholder="Search vendor or config symbol" autocomplete="off">
+      <label class="check">
+        <input id="chineseOnly" type="checkbox">
+        Chinese based
+      </label>
+      <label class="check">
+        <input id="supportedOnly" type="checkbox">
+        HookOS 6.6 supported
+      </label>
+      <div id="count" class="count" aria-live="polite"></div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Vendor name</th>
+            <th>Chinese based</th>
+            <th>Supported in HookOS 6.6</th>
+            <th>1Gb or faster</th>
+            <th>Config symbol</th>
+          </tr>
+        </thead>
+        <tbody id="vendorRows"></tbody>
+      </table>
+    </div>
+  </main>
+
+  <script>
+    const vendors = [
+      ["3Com", false, false, "CONFIG_NET_VENDOR_3COM"],
+      ["Actions Semi", true, false, "CONFIG_NET_VENDOR_ACTIONS"],
+      ["Adaptec", false, false, "CONFIG_NET_VENDOR_ADAPTEC"],
+      ["Aeroflex", false, false, "directory only"],
+      ["Agere", false, false, "CONFIG_NET_VENDOR_AGERE"],
+      ["Airoha", false, false, "CONFIG_NET_VENDOR_AIROHA"],
+      ["Alacritech", false, false, "CONFIG_NET_VENDOR_ALACRITECH"],
+      ["Allwinner", true, false, "CONFIG_NET_VENDOR_ALLWINNER"],
+      ["Altera", false, false, "directory only"],
+      ["Amazon", false, true, "CONFIG_NET_VENDOR_AMAZON"],
+      ["AMD", false, true, "CONFIG_NET_VENDOR_AMD"],
+      ["Analog Devices", false, false, "CONFIG_NET_VENDOR_ADI"],
+      ["APM X-Gene", false, true, "directory only"],
+      ["Apple", false, false, "CONFIG_NET_VENDOR_APPLE"],
+      ["aQuantia", false, false, "CONFIG_NET_VENDOR_AQUANTIA"],
+      ["ARC", false, false, "CONFIG_NET_VENDOR_ARC"],
+      ["Asix", false, false, "CONFIG_NET_VENDOR_ASIX"],
+      ["Atheros", false, false, "CONFIG_NET_VENDOR_ATHEROS"],
+      ["Broadcom", false, true, "CONFIG_NET_VENDOR_BROADCOM"],
+      ["Cadence", false, true, "CONFIG_NET_VENDOR_CADENCE"],
+      ["Calxeda", false, false, "directory only"],
+      ["Cavium", false, true, "CONFIG_NET_VENDOR_CAVIUM"],
+      ["Chelsio", false, false, "CONFIG_NET_VENDOR_CHELSIO"],
+      ["Cirrus", false, false, "CONFIG_NET_VENDOR_CIRRUS"],
+      ["Cisco", false, false, "CONFIG_NET_VENDOR_CISCO"],
+      ["Cortina Gemini", false, false, "CONFIG_NET_VENDOR_CORTINA"],
+      ["Davicom", false, false, "CONFIG_NET_VENDOR_DAVICOM"],
+      ["Digital Equipment", false, false, "CONFIG_NET_VENDOR_DEC"],
+      ["D-Link", false, false, "CONFIG_NET_VENDOR_DLINK"],
+      ["Emulex", false, false, "CONFIG_NET_VENDOR_EMULEX"],
+      ["Engleder", false, false, "CONFIG_NET_VENDOR_ENGLEDER"],
+      ["EZchip", false, false, "CONFIG_NET_VENDOR_EZCHIP"],
+      ["Faraday", false, false, "CONFIG_NET_VENDOR_FARADAY"],
+      ["Freescale", false, false, "CONFIG_NET_VENDOR_FREESCALE"],
+      ["Fungible", false, false, "CONFIG_NET_VENDOR_FUNGIBLE"],
+      ["Google", false, true, "CONFIG_NET_VENDOR_GOOGLE"],
+      ["Hisilicon", true, true, "CONFIG_NET_VENDOR_HISILICON"],
+      ["Huawei", true, true, "CONFIG_NET_VENDOR_HUAWEI"],
+      ["IBM", false, false, "CONFIG_NET_VENDOR_IBM"],
+      ["Intel", false, true, "CONFIG_NET_VENDOR_INTEL"],
+      ["Intel 825xx", false, false, "CONFIG_NET_VENDOR_I825XX"],
+      ["Intel XScale IXP", false, false, "CONFIG_NET_VENDOR_XSCALE"],
+      ["LiteX", false, false, "CONFIG_NET_VENDOR_LITEX"],
+      ["Marvell", false, true, "CONFIG_NET_VENDOR_MARVELL"],
+      ["MediaTek", false, false, "CONFIG_NET_VENDOR_MEDIATEK"],
+      ["Mellanox", false, true, "CONFIG_NET_VENDOR_MELLANOX"],
+      ["Meta Platforms", false, false, "CONFIG_NET_VENDOR_META"],
+      ["Micrel", false, false, "CONFIG_NET_VENDOR_MICREL"],
+      ["Microchip", false, false, "CONFIG_NET_VENDOR_MICROCHIP"],
+      ["Microsemi", false, false, "CONFIG_NET_VENDOR_MICROSEMI"],
+      ["Microsoft", false, true, "CONFIG_NET_VENDOR_MICROSOFT"],
+      ["MOXA ART", false, false, "CONFIG_NET_VENDOR_MOXART"],
+      ["Mucse", true, true, "CONFIG_NET_VENDOR_MUCSE"],
+      ["Myricom", false, false, "CONFIG_NET_VENDOR_MYRI"],
+      ["National Instruments", false, false, "CONFIG_NET_VENDOR_NI"],
+      ["National Semiconductor", false, false, "CONFIG_NET_VENDOR_NATSEMI"],
+      ["National Semiconductor 8390", false, false, "CONFIG_NET_VENDOR_8390"],
+      ["Netronome", false, false, "CONFIG_NET_VENDOR_NETRONOME"],
+      ["NVIDIA", false, false, "CONFIG_NET_VENDOR_NVIDIA"],
+      ["NXP", false, false, "directory only"],
+      ["OKI Semiconductor", false, false, "CONFIG_NET_VENDOR_OKI"],
+      ["PA Semi", false, false, "CONFIG_NET_VENDOR_PASEMI"],
+      ["Pensando", false, true, "CONFIG_NET_VENDOR_PENSANDO"],
+      ["QLogic", false, false, "CONFIG_NET_VENDOR_QLOGIC"],
+      ["QLogic BR-series", false, false, "CONFIG_NET_VENDOR_BROCADE"],
+      ["Qualcomm", false, true, "CONFIG_NET_VENDOR_QUALCOMM"],
+      ["RDC", false, false, "CONFIG_NET_VENDOR_RDC"],
+      ["Realtek", false, true, "CONFIG_NET_VENDOR_REALTEK"],
+      ["Renesas", false, false, "CONFIG_NET_VENDOR_RENESAS"],
+      ["Rocker", false, false, "CONFIG_NET_VENDOR_ROCKER"],
+      ["Samsung", false, true, "CONFIG_NET_VENDOR_SAMSUNG"],
+      ["SEEQ", false, false, "CONFIG_NET_VENDOR_SEEQ"],
+      ["SGI", false, false, "CONFIG_NET_VENDOR_SGI"],
+      ["Silan", true, false, "CONFIG_NET_VENDOR_SILAN"],
+      ["SiS", false, false, "CONFIG_NET_VENDOR_SIS"],
+      ["SMC/SMSC/Western Digital", false, false, "CONFIG_NET_VENDOR_SMSC"],
+      ["Socionext", false, true, "CONFIG_NET_VENDOR_SOCIONEXT"],
+      ["Solarflare", false, false, "CONFIG_NET_VENDOR_SOLARFLARE"],
+      ["SpacemiT", true, false, "CONFIG_NET_VENDOR_SPACEMIT"],
+      ["STMicroelectronics", false, true, "CONFIG_NET_VENDOR_STMICRO"],
+      ["Sun", false, false, "CONFIG_NET_VENDOR_SUN"],
+      ["Sunplus", false, false, "CONFIG_NET_VENDOR_SUNPLUS"],
+      ["Synopsys", false, false, "CONFIG_NET_VENDOR_SYNOPSYS"],
+      ["Tehuti", false, false, "CONFIG_NET_VENDOR_TEHUTI"],
+      ["Texas Instruments", false, false, "CONFIG_NET_VENDOR_TI"],
+      ["Toshiba", false, false, "CONFIG_NET_VENDOR_TOSHIBA"],
+      ["Tundra", false, false, "CONFIG_NET_VENDOR_TUNDRA"],
+      ["Vertexcom", false, false, "CONFIG_NET_VENDOR_VERTEXCOM"],
+      ["VIA", false, false, "CONFIG_NET_VENDOR_VIA"],
+      ["Wangxun", true, true, "CONFIG_NET_VENDOR_WANGXUN"],
+      ["WIZnet", false, false, "CONFIG_NET_VENDOR_WIZNET"],
+      ["Xilinx", false, false, "CONFIG_NET_VENDOR_XILINX"],
+      ["Xircom", false, false, "CONFIG_NET_VENDOR_XIRCOM"]
+    ];
+
+    const gigabitOrFasterVendors = new Set([
+      "Aeroflex",
+      "Agere",
+      "Airoha",
+      "Alacritech",
+      "Altera",
+      "Amazon",
+      "AMD",
+      "APM X-Gene",
+      "aQuantia",
+      "Atheros",
+      "Broadcom",
+      "Cadence",
+      "Calxeda",
+      "Cavium",
+      "Chelsio",
+      "Cisco",
+      "Cortina Gemini",
+      "D-Link",
+      "Emulex",
+      "Engleder",
+      "Faraday",
+      "Freescale",
+      "Fungible",
+      "Google",
+      "Hisilicon",
+      "Huawei",
+      "IBM",
+      "Intel",
+      "Marvell",
+      "MediaTek",
+      "Mellanox",
+      "Meta Platforms",
+      "Microchip",
+      "Microsemi",
+      "Microsoft",
+      "Mucse",
+      "Myricom",
+      "National Instruments",
+      "National Semiconductor",
+      "Netronome",
+      "NVIDIA",
+      "OKI Semiconductor",
+      "PA Semi",
+      "Pensando",
+      "QLogic",
+      "QLogic BR-series",
+      "Qualcomm",
+      "Realtek",
+      "Renesas",
+      "Samsung",
+      "SiS",
+      "SMC/SMSC/Western Digital",
+      "Socionext",
+      "Solarflare",
+      "SpacemiT",
+      "STMicroelectronics",
+      "Sun",
+      "Synopsys",
+      "Tehuti",
+      "Texas Instruments",
+      "Toshiba",
+      "Tundra",
+      "VIA",
+      "Wangxun",
+      "Xilinx"
+    ]);
+
+    const rows = document.getElementById("vendorRows");
+    const search = document.getElementById("search");
+    const chineseOnly = document.getElementById("chineseOnly");
+    const supportedOnly = document.getElementById("supportedOnly");
+    const count = document.getElementById("count");
+
+    function pill(value) {
+      return `<span class="pill ${value ? "yes" : "no"}">${value ? "Yes" : "No"}</span>`;
+    }
+
+    function render() {
+      const term = search.value.trim().toLowerCase();
+      const filtered = vendors.filter(([name, chinese, supported, symbol]) => {
+        const matchesSearch = !term ||
+          name.toLowerCase().includes(term) ||
+          symbol.toLowerCase().includes(term);
+        return matchesSearch &&
+          (!chineseOnly.checked || chinese) &&
+          (!supportedOnly.checked || supported);
+      });
+
+      rows.innerHTML = filtered.length
+        ? filtered.map(([name, chinese, supported, symbol]) => `
+          <tr>
+            <td class="vendor">${name}</td>
+            <td>${pill(chinese)}</td>
+            <td>${pill(supported)}</td>
+            <td>${pill(gigabitOrFasterVendors.has(name))}</td>
+            <td><code>${symbol}</code></td>
+          </tr>
+        `).join("")
+        : `<tr><td class="empty" colspan="5">No vendors match the current filters.</td></tr>`;
+
+      count.textContent = `${filtered.length} / ${vendors.length}`;
+    }
+
+    search.addEventListener("input", render);
+    chineseOnly.addEventListener("change", render);
+    supportedOnly.addEventListener("change", render);
+    render();
+  </script>
+</body>
+</html>
