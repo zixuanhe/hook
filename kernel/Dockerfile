@@ -3,11 +3,13 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # crossbuild-essentials are pretty heavy; here we install for both architecures to maximize Docker layer hit cache rate during development, but only one will be used
 RUN set -x && apt -o "Dpkg::Use-Pty=0" -y update && \
-      apt -o "Dpkg::Use-Pty=0" -y install curl xz-utils gnupg2 flex bison libssl-dev libelf-dev bc libncurses-dev kmod make \
+      apt -o "Dpkg::Use-Pty=0" -y install curl xz-utils gnupg2 flex bison libssl-dev libelf-dev bc libncurses-dev kmod make patch \
                      crossbuild-essential-amd64 crossbuild-essential-arm64 && \
       apt -o "Dpkg::Use-Pty=0" -y clean
 
+ARG KERNEL_MAJOR
 ARG KERNEL_MAJOR_V
+ARG KERNEL_MINOR
 ARG KERNEL_VERSION
 ARG KERNEL_SOURCE=https://www.kernel.org/pub/linux/kernel/${KERNEL_MAJOR_V}/linux-${KERNEL_VERSION}.tar.xz
 ARG KERNEL_SHA256_SUMS=https://www.kernel.org/pub/linux/kernel/${KERNEL_MAJOR_V}/sha256sums.asc
@@ -23,6 +25,16 @@ COPY /keys.asc /keys.asc
 # Download and verify kernel
 COPY download.sh /download.sh
 RUN /download.sh ${KERNEL_VERSION} ${KERNEL_SOURCE} ${KERNEL_SHA256_SUMS} ${KERNEL_PGP2_SIGN} ${KERNEL_SOURCE_BACKUP} ${KERNEL_SHA256_SUMS_BACKUP} ${KERNEL_PGP2_SIGN_BACKUP}
+
+COPY patches /patches
+RUN set -x && \
+    patch_dir="/patches/${KERNEL_MAJOR}.${KERNEL_MINOR}.y" && \
+    if [ -d "${patch_dir}" ]; then \
+        find "${patch_dir}" -type f -name "*.patch" | sort | while read -r patch_file; do \
+            echo "Applying kernel patch ${patch_file}"; \
+            patch -d /linux -p1 < "${patch_file}"; \
+        done; \
+    fi
 
 FROM kernel-source-unpacked AS kernel-with-config
 
