@@ -54,6 +54,10 @@ onboot:
     image: "${HOOK_CONTAINER_LINUXKIT_MODPROBE_IMAGE}"
     command: [ "modprobe", "cdc_ncm" ] # for usb ethernet dongles
 
+  - name: modprobe-rnpgbe
+    image: "${HOOK_CONTAINER_LINUXKIT_MODPROBE_IMAGE}"
+    command: [ "modprobe", "rnpgbe" ]
+
   - name: udev
     image: "${HOOK_CONTAINER_UDEV_IMAGE}"
     capabilities:
