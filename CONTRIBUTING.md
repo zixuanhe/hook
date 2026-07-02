@@ -15,6 +15,15 @@ Please read and understand the code of conduct found [here](https://github.com/t
 
 Please read and understand the DCO found [here](docs/DCO.md).
 
+### Commit Message Requirements
+
+Commit messages must be compatible with git-cliff's Conventional Commits parser.
+Use a lowercase type followed by an optional scope and a colon, for example `feat(loongarch64): add Linux 6.6 HookOS build`.
+Prefer `feat:`, `fix:`, `docs:`, `test:`, `refactor:`, `build:`, and `chore:` for the type.
+Use `!` before the colon or a `BREAKING CHANGE:` footer for breaking changes.
+Keep the subject in the imperative mood, with no trailing period.
+Add a body when useful, and include the DCO `Signed-off-by:` trailer when required.
+
 ### Environment Details
 
 Building is handled by a bash script, please see the [build.sh](build.sh) for details.

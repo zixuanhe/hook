@@ -17,6 +17,7 @@ source bash/kernel/kernel_default.sh
 source bash/kernel/kernel_armbian.sh
 source bash/bootable-media.sh
 source bash/bootable/grub.sh
+source bash/bootable/direct-efi.sh
 source bash/bootable/armbian-u-boot.sh
 source bash/bootable/rpi.sh
 source bash/bootable/fat32-image.sh
@@ -73,9 +74,6 @@ mkdir -p "${CACHE_DIR}" # ensure the directory exists
 # Install OS dependencies
 install_dependencies
 
-# check the host's docker daemon
-check_docker_daemon_for_sanity
-
 # These commands take no paramters and are handled first, and exit early.
 declare first_param="${CLI_NON_PARAM_ARGS[0]}"
 if [[ -z "${first_param}" ]]; then # default it to "build" if not set, but warn users to be explicit.
@@ -119,11 +117,15 @@ case "${first_param}" in
 		;;
 
 	linuxkit-containers)
+		check_docker_daemon_for_sanity
 		build_all_hook_linuxkit_containers
 		exit 0
 		;;
 
 	bootable-media | bootable | media)
+		if [[ "${CLI_NON_PARAM_ARGS[1]:-}" != direct-efi-* ]]; then
+			check_docker_daemon_for_sanity
+		fi
 		install_dependencies "bootable-media"             # bootable's need more dependencies (pixz, pv)
 		build_bootable_media "${CLI_NON_PARAM_ARGS[@]:1}" # this handles its own arguments, namely the bootable_id
 		exit 0
@@ -146,23 +148,28 @@ obtain_kernel_data_from_id "${inventory_id}" # Gather the information about the 
 
 case "${first_param}" in
 	kernel-config-shell | config-shell-kernel)
+		check_docker_daemon_for_sanity
 		kernel_configure_interactive "shell" # runs a shell in the kernel build environment
 		;;
 
 	config | kernel-config | config-kernel)
+		check_docker_daemon_for_sanity
 		kernel_configure_interactive "one-shot" # directly calls menuconfig & extracts a defconfig to build host
 		;;
 
 	kernel | kernel-build | build-kernel)
+		check_docker_daemon_for_sanity
 		kernel_build
 		;;
 
 	build | linuxkit) # Build Hook proper, using the specified kernel
+		check_docker_daemon_for_sanity
 		unset LK_RUN     # ensure unset, lest the build might also run the image
 		linuxkit_build
 		;;
 
 	build-run-qemu | run-qemu | qemu-run | run | qemu)
+		check_docker_daemon_for_sanity
 		LK_RUN="qemu" linuxkit_build
 		;;
 

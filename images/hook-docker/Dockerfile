@@ -1,7 +1,8 @@
-FROM golang:1.24-alpine AS dev
+FROM --platform=$BUILDPLATFORM golang:1.24-alpine AS dev
+ARG TARGETARCH
 COPY . /src/
 WORKDIR /src
-RUN CGO_ENABLED=0 go build -a -ldflags '-s -w -extldflags "-static"' -o /hook-docker
+RUN CGO_ENABLED=0 GOOS=linux GOARCH="${TARGETARCH}" go build -a -ldflags '-s -w -extldflags "-static"' -o /hook-docker
 
 FROM docker:28.2.2-dind AS docker
 RUN echo "http://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories

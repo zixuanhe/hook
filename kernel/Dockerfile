@@ -3,8 +3,8 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # crossbuild-essentials are pretty heavy; here we install for both architecures to maximize Docker layer hit cache rate during development, but only one will be used
 RUN set -x && apt -o "Dpkg::Use-Pty=0" -y update && \
-      apt -o "Dpkg::Use-Pty=0" -y install curl xz-utils gnupg2 flex bison libssl-dev libelf-dev bc libncurses-dev kmod make patch \
-                     crossbuild-essential-amd64 crossbuild-essential-arm64 && \
+      apt -o "Dpkg::Use-Pty=0" -y install curl xz-utils gnupg2 flex bison libssl-dev libelf-dev bc libncurses-dev kmod make patch gcc bsdextrautils \
+                     crossbuild-essential-amd64 crossbuild-essential-arm64 gcc-loongarch64-linux-gnu binutils-loongarch64-linux-gnu && \
       apt -o "Dpkg::Use-Pty=0" -y clean
 
 ARG KERNEL_MAJOR
@@ -67,6 +67,7 @@ VOLUME /host
 FROM kernel-with-config AS kernel-build
 
 ARG KERNEL_OUTPUT_IMAGE
+ARG KERNEL_BUILD_JOBS
 
 RUN mkdir /out
 
@@ -75,14 +76,14 @@ RUN sed -i 's/#define COMMAND_LINE_SIZE 2048/#define COMMAND_LINE_SIZE 4096/' ar
 # Kernel build. ENVs in previous stages are inherited; thus ARCH, CROSS_COMPILE, KCFLAGS, KBUILD_BUILD_USER, KBUILD_BUILD_HOST are available
 RUN set -x && \
     echo "Cross compiler: ${CROSS_COMPILE}" && \
-    make -j"$(getconf _NPROCESSORS_ONLN)" && \
+    make -j"${KERNEL_BUILD_JOBS:-$(getconf _NPROCESSORS_ONLN)}" && \
     cp ${KERNEL_OUTPUT_IMAGE} /out/kernel && \
     cp System.map /out
 
 
 # Modules, from lib/modules go into kernel.tar (will be extracted in root filesystem by linuxkit)
 RUN set -x && \
-    make -s -j"$(getconf _NPROCESSORS_ONLN)" INSTALL_MOD_PATH=/tmp/kernel-modules modules_install && \
+    make -s -j"${KERNEL_BUILD_JOBS:-$(getconf _NPROCESSORS_ONLN)}" INSTALL_MOD_PATH=/tmp/kernel-modules modules_install && \
     ( DVER=$(basename $(find /tmp/kernel-modules/lib/modules/ -mindepth 1 -maxdepth 1)) && \
       cd /tmp/kernel-modules/lib/modules/$DVER && \
       rm -f build source ) && \
@@ -94,7 +95,7 @@ RUN set -x && \
     case "$KERNEL_ARCH" in \
     arm64) \
         echo "Building DTBs for arm64" && \
-        make -s -j"$(getconf _NPROCESSORS_ONLN)" INSTALL_DTBS_PATH=/tmp/kernel-dtb dtbs_install; \
+        make -s -j"${KERNEL_BUILD_JOBS:-$(getconf _NPROCESSORS_ONLN)}" INSTALL_DTBS_PATH=/tmp/kernel-dtb dtbs_install; \
         ;; \
     *) \
         echo "No DTBs for $KERNEL_ARCH"; \

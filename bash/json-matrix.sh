@@ -13,6 +13,7 @@
 # GH Runner selection, using environment variables  (in order of specificity, for AMD64, same applies to ARM64 variant):
 ## Kernels: (1)
 # - CI_RUNNER_KERNEL_SOURCE_AMD64 is the runner to use for amd64 kernel builds for kernels built from source
+# - CI_RUNNER_KERNEL_SOURCE_LOONG64 is the runner to use for loong64 kernel builds for kernels built from source
 # - CI_RUNNER_KERNEL_EXTERNAL_AMD64 is the runner to use for amd64 kernel builds for kernels obtained externally
 # - CI_RUNNER_KERNEL_AMD64 is the runner to use for amd64 kernel builds
 # - CI_RUNNER_KERNEL_SOURCE is the runner to use for kernels built from source

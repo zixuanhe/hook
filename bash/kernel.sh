@@ -136,10 +136,11 @@ function get_kernel_info_dict() {
 		exit 1
 	fi
 
-	# convert ARCH (x86_64, aarch64) to docker-ARCH (amd64, arm64)
+	# convert ARCH (x86_64, aarch64, loongarch64) to docker-ARCH (amd64, arm64, loong64)
 	case "${kernel_info['ARCH']}" in
 		"x86_64") kernel_info['DOCKER_ARCH']="amd64" ;;
 		"aarch64" | "arm64") kernel_info['DOCKER_ARCH']="arm64" ;;
+		"loongarch64") kernel_info['DOCKER_ARCH']="loong64" ;;
 		*) log error "ARCH ${kernel_info['ARCH']} not supported" && exit 1 ;;
 	esac
 }
@@ -154,10 +155,11 @@ function set_kernel_vars_from_info_dict() {
 
 function get_host_docker_arch() {
 	declare -g host_docker_arch="unknown"
-	# convert ARCH (x86_64, aarch64) to docker-ARCH (amd64, arm64)
+	# convert ARCH (x86_64, aarch64, loongarch64) to docker-ARCH (amd64, arm64, loong64)
 	case "$(uname -m)" in
 		"x86_64") host_docker_arch="amd64" ;;
 		"aarch64" | "arm64") host_docker_arch="arm64" ;;
+		"loongarch64") host_docker_arch="loong64" ;;
 		*) log error "ARCH $(uname -m) not supported" && exit 1 ;;
 	esac
 	return 0

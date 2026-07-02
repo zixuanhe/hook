@@ -47,6 +47,12 @@ function calculate_kernel_version_default() {
 			KERNEL_CROSS_COMPILE="aarch64-linux-gnu-"
 			KERNEL_OUTPUT_IMAGE="arch/arm64/boot/Image"
 			;;
+		"loongarch64")
+			KERNEL_ARCH="loongarch"
+			KERNEL_CROSS_COMPILE_PKGS="gcc-loongarch64-linux-gnu binutils-loongarch64-linux-gnu"
+			KERNEL_CROSS_COMPILE="loongarch64-linux-gnu-"
+			KERNEL_OUTPUT_IMAGE="arch/loongarch/boot/vmlinuz.efi"
+			;;
 		*) log error "ERROR: ARCH ${ARCH} not supported" && exit 1 ;;
 	esac
 
@@ -84,6 +90,10 @@ function common_build_args_kernel_default() {
 		"--build-arg" "KERNEL_POINT_RELEASE=${KERNEL_POINT_RELEASE}"
 		"--build-arg" "INPUT_DEFCONFIG=${INPUT_DEFCONFIG}"
 	)
+
+	if [[ -n "${KERNEL_BUILD_JOBS:-}" ]]; then
+		build_args+=("--build-arg" "KERNEL_BUILD_JOBS=${KERNEL_BUILD_JOBS}")
+	fi
 }
 
 function configure_kernel_default() {

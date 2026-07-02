@@ -13,9 +13,9 @@ set -e # exit on error
 # It will use the MAC address specified in `hw_addr=` to find the interface to add the VLAN to.
 
 parse_from_cmdline() {
-	local key="${1}"
-    local cmdline
-    local ipam_value
+	key="${1}"
+    cmdline=""
+    value=""
 
     # Read the contents of /proc/cmdline
     cmdline=$(cat /proc/cmdline)
@@ -34,10 +34,10 @@ parse_from_cmdline() {
 }
 
 get_interface_name() {
-    local mac=$1
+    mac=$1
     for interface in /sys/class/net/*; do
         if [ -f "$interface/address" ]; then
-            if [ "$(cat "$interface/address")" == "$mac" ]; then
+            if [ "$(cat "$interface/address")" = "$mac" ]; then
                 echo "$(basename "$interface")"
                 return 0
             fi
@@ -46,29 +46,27 @@ get_interface_name() {
     return 1
 }
 
-function add_vlan_interface() {
+add_vlan_interface() {
 	# check if vlan_id  are set in the kernel commandline, otherwise return.
-	if ! parse_from_cmdline vlan_id; then
+	if ! vlan_id="$(parse_from_cmdline vlan_id)"; then
 		echo "No vlan_id=xxxx set in kernel commandline; no VLAN handling." >&2
 		return
 	fi
 
 	# check if  hw_addr are set in the kernel commandline, otherwise return.
-	if ! parse_from_cmdline hw_addr; then
+	if ! hw_addr="$(parse_from_cmdline hw_addr)"; then
 		echo "No hw_addr=xx:xx:xx:xx:xx:xx set in kernel commandline." >&2
+		hw_addr=""
 	fi
 
 	echo "Starting VLAN handling, parsing..." >&2
-
-	vlan_id="$(parse_from_cmdline vlan_id)"
-	hw_addr="$(parse_from_cmdline hw_addr)"
 
 	echo "VLAN handling - vlan_id: '${vlan_id}', hw_addr: '${hw_addr}'" >&2
 
 	if [ -n "$vlan_id" ]; then
 		if [ -n "$hw_addr" ]; then
 			echo "VLAN handling - vlan_id: '${vlan_id}', hw_addr: '${hw_addr}', searching for interface..." >&2
-			ifname="$(get_interface_name ${hw_addr})"
+			ifname="$(get_interface_name "${hw_addr}")"
 			echo "VLAN handling - vlan_id: '${vlan_id}', hw_addr: '${hw_addr}', found interface: '${ifname}'" >&2
 		else
 			echo "VLAN handling - vlan_id: '${vlan_id}', hw_addr: '${hw_addr}', no hw_addr found in kernel commandline; cannot set vlan interface." >&2

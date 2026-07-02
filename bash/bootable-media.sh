@@ -116,17 +116,26 @@ function fill_array_bootable_tinkerbell_kernel_parameters() {
 	declare -g -a bootable_tinkerbell_kernel_params=() # output global var
 	declare -r board_id="${1}"                         # board_id is the first argument
 
-	declare TINK_WORKER_IMAGE="${TINK_WORKER_IMAGE:-"ghcr.io/tinkerbell/tink-agent:latest"}"
+	declare default_tink_worker_image="ghcr.io/tinkerbell/tink-agent:latest"
+	if [[ "${kernel_info['DOCKER_ARCH']}" == "loong64" ]]; then
+		default_tink_worker_image="127.0.0.1/embedded/tink-agent:loong64"
+	fi
+	declare TINK_WORKER_IMAGE="${TINK_WORKER_IMAGE:-"${default_tink_worker_image}"}"
 	declare TINK_TLS="${TINK_TLS:-"false"}"
 	declare TINK_GRPC_PORT="${TINK_GRPC_PORT:-"42113"}"
 	declare TINK_SERVER="${TINK_SERVER:-"tinkerbell"}" # export TINK_SERVER="192.168.66.75"
 	declare WORKER_ID="${WORKER_ID:-"${board_id}"}"    # export WORKER_ID="11:22:33:44:55:66"
+	declare HOOK_BOOTKIT_CONTAINER_RUNTIME="${HOOK_BOOTKIT_CONTAINER_RUNTIME:-""}"
+	if [[ -z "${HOOK_BOOTKIT_CONTAINER_RUNTIME}" && "${kernel_info['DOCKER_ARCH']}" == "loong64" ]]; then
+		HOOK_BOOTKIT_CONTAINER_RUNTIME="nerdctl"
+	fi
 
 	log info "WORKER_ID is set to '${WORKER_ID}'"
 	log info "TINK_WORKER_IMAGE is set to '${TINK_WORKER_IMAGE}'"
 	log info "TINK_SERVER is set to '${TINK_SERVER}'"
 	log info "TINK_TLS is set to '${TINK_TLS}'"
 	log info "TINK_GRPC_PORT is set to '${TINK_GRPC_PORT}'"
+	log info "HOOK_BOOTKIT_CONTAINER_RUNTIME is set to '${HOOK_BOOTKIT_CONTAINER_RUNTIME:-"(default)"}'"
 
 	bootable_tinkerbell_kernel_params+=(
 		"worker_id=${WORKER_ID}"
@@ -135,4 +144,7 @@ function fill_array_bootable_tinkerbell_kernel_parameters() {
 		"tinkerbell_tls=${TINK_TLS}"
 		"syslog_host=${TINK_SERVER}"
 	)
+	if [[ -n "${HOOK_BOOTKIT_CONTAINER_RUNTIME}" ]]; then
+		bootable_tinkerbell_kernel_params+=("container_runtime=${HOOK_BOOTKIT_CONTAINER_RUNTIME}")
+	fi
 }

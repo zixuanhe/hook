@@ -83,6 +83,26 @@ function linuxkit_build() {
 
 	# Run envsubst on the template file, output to a new file; pass the envs and the arg string
 	env "${envsubst_envs[@]}" envsubst "${envsubst_arg_string}" < "linuxkit-templates/${kernel_info['TEMPLATE']}.template.yaml" > "hook.${inventory_id}.yaml"
+	if [[ "${kernel_info['DOCKER_ARCH']}" == "loong64" ]]; then
+		log info "Removing hook-docker and ACPI services from LoongArch LinuxKit template; BootKit will use containerd/nerdctl."
+		awk '
+			/^#HOOK_DOCKER_SERVICE_BEGIN$/ { skip = 1; next }
+			/^#HOOK_DOCKER_SERVICE_END$/ { skip = 0; next }
+			/^#HOOK_ACPI_SERVICE_BEGIN$/ { skip = 1; next }
+			/^#HOOK_ACPI_SERVICE_END$/ { skip = 0; next }
+			/^#HOOK_LOONG64_AGENT_IMAGE_BEGIN$/ { next }
+			/^#HOOK_LOONG64_AGENT_IMAGE_END$/ { next }
+			skip != 1 { print }
+		' "hook.${inventory_id}.yaml" > "hook.${inventory_id}.yaml.tmp"
+		mv "hook.${inventory_id}.yaml.tmp" "hook.${inventory_id}.yaml"
+	else
+		awk '
+			/^#HOOK_LOONG64_AGENT_IMAGE_BEGIN$/ { skip = 1; next }
+			/^#HOOK_LOONG64_AGENT_IMAGE_END$/ { skip = 0; next }
+			skip != 1 { print }
+		' "hook.${inventory_id}.yaml" > "hook.${inventory_id}.yaml.tmp"
+		mv "hook.${inventory_id}.yaml.tmp" "hook.${inventory_id}.yaml"
+	fi
 
 	declare -g linuxkit_bin=""
 	obtain_linuxkit_binary_cached # sets "${linuxkit_bin}"
@@ -365,6 +385,12 @@ function linuxkit_run_qemu() {
 			lk_run_kernel_console="console=ttyAMA0"
 			;;
 
+		loong64)
+			# apt install qemu-system-misc qemu-efi-loongarch64
+			lk_run_args+=("--fw" "/usr/share/qemu-efi-loongarch64/QEMU_EFI.fd")
+			lk_run_kernel_console="console=ttyS0"
+			;;
+
 		*) log error "How did you get this far? bug. report." && exit 66 ;;
 	esac
 
@@ -374,11 +400,19 @@ function linuxkit_run_qemu() {
 		# linuxkit messes up non-kvm arm64 emulation anyway, sorry: "qemu-system-aarch64: gic-version=host requires KVM"
 	fi
 
-	declare TINK_WORKER_IMAGE="${TINK_WORKER_IMAGE:-"quay.io/tinkerbell/tink-worker:latest"}"
+	declare default_tink_worker_image="quay.io/tinkerbell/tink-worker:latest"
+	if [[ "${kernel_info['DOCKER_ARCH']}" == "loong64" ]]; then
+		default_tink_worker_image="127.0.0.1/embedded/tink-agent:loong64"
+	fi
+	declare TINK_WORKER_IMAGE="${TINK_WORKER_IMAGE:-"${default_tink_worker_image}"}"
 	declare TINK_TLS="${TINK_TLS:-"false"}"
 	declare TINK_GRPC_PORT="${TINK_GRPC_PORT:-"42113"}"
 	declare TINK_SERVER="${TINK_SERVER:-"unset"}" # export TINK_SERVER="192.168.66.75"
 	declare MAC="${MAC:-"unset"}"                 # export MAC="11:22:33:44:55:66" # or export MAC="11:22:33:44:55:77"
+	declare HOOK_BOOTKIT_CONTAINER_RUNTIME="${HOOK_BOOTKIT_CONTAINER_RUNTIME:-""}"
+	if [[ -z "${HOOK_BOOTKIT_CONTAINER_RUNTIME}" && "${kernel_info['DOCKER_ARCH']}" == "loong64" ]]; then
+		HOOK_BOOTKIT_CONTAINER_RUNTIME="nerdctl"
+	fi
 
 	log info "TINK_WORKER_IMAGE is set to '${TINK_WORKER_IMAGE}'"
 	log info "TINK_TLS is set to '${TINK_TLS}'"
@@ -386,6 +420,10 @@ function linuxkit_run_qemu() {
 		"tink_worker_image=${TINK_WORKER_IMAGE}"
 		"tinkerbell_tls=${TINK_TLS}"
 	)
+	if [[ -n "${HOOK_BOOTKIT_CONTAINER_RUNTIME}" ]]; then
+		log info "HOOK_BOOTKIT_CONTAINER_RUNTIME is set to '${HOOK_BOOTKIT_CONTAINER_RUNTIME}'"
+		lk_run_kernel_cmdline+=("container_runtime=${HOOK_BOOTKIT_CONTAINER_RUNTIME}")
+	fi
 
 	# If TINK_SERVER and MAC are different from 'unset' add params
 	if [[ "${TINK_SERVER}" != "unset" && "${MAC}" != "unset" ]]; then

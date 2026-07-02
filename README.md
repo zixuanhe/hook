@@ -74,6 +74,7 @@ It will then speak with the `hook-docker` engine API through the shared `/var/ru
     - Should allow people to develop Hook without having to build a kernel, depending on CI frequency and luck.
 - Introduces multiple "flavors" of hook. Instead of restricted to 2 hardcoded flavors (x86_64 and aarch64, built from source), we can now define multiple flavors, each with an ID and version/configure/build methods.
   - the `hook-default-amd64` and `hook-default-arm64` kernels are equivalent to the two original.
+  - the `hook-latest-lts-loongarch64` kernel is an experimental Linux 6.6 loongarch64 source build.
   - the `armbian-` prefixed kernels are actually Armbian kernels for more exotic arm64 SBCs, or Armbian's generic UEFI kernels for both arches. Those are very fast to "build" since Armbian publishes their .deb packages in OCI images, and here we
       just download and massage them into the format required by Linuxkit.
 - `hook.yaml` is replaced with `hook.template.yaml` which is templated via a limited-var invocation of `envsubst`; only the kernel image and the arch is actually different per-flavor.
@@ -86,6 +87,10 @@ It will then speak with the `hook-docker` engine API through the shared `/var/ru
 The Hook build system is designed to handle multiple flavors.
 A flavor mostly equates with a specific Linux Kernel, a LinuxKit version, and a LinuxKit YAML configuration template.
 The "default" flavor ids are `hook-default-amd64` and `hook-default-arm64`, which use a kernel that is built and configured from source by the Hook build system.
+The experimental loongarch64 source flavor is `hook-latest-lts-loongarch64`.
+The experimental loongarch64 EFI bootable media id is `direct-efi-latest-lts-loongarch64`; it produces a FAT32 removable-media image with GRUB at `EFI/BOOT/BOOTLOONGARCH64.EFI`, which loads `/vmlinuz` and `/initrd.img`.
+If a full `out/hook/initramfs-latest-lts-loongarch64` artifact exists, it is used; otherwise the direct EFI path builds a minimal loong64 initrd for kernel, GRUB, EFI, and initrd smoke testing.
+The loongarch64 LinuxKit path uses `container_runtime=nerdctl` for BootKit, skips the Docker Engine service, replaces the Debian udev image with a BusyBox mdev image, and generates experimental source/minimal replacements for pinned upstream `linuxkit/*` package images that do not publish `linux/loong64` manifests. Because the upstream `ghcr.io/tinkerbell/tink-agent:latest` image currently does not publish a loong64 manifest, the loongarch64 build creates a local `hook-tink-agent` image and embeds it in the initramfs as `127.0.0.1/embedded/tink-agent:loong64` for BootKit to import into containerd.
 Other flavors use Foreign kernels from other distributions to cater for special needs.
 
 There is an inventory of all available flavors in the [bash/inventory.sh](bash/inventory.sh) file.

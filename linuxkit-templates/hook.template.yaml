@@ -10,6 +10,7 @@
 # - HOOK_CONTAINER_CONTAINERD_IMAGE: ${HOOK_CONTAINER_CONTAINERD_IMAGE}
 # - HOOK_CONTAINER_RUNC_IMAGE: ${HOOK_CONTAINER_RUNC_IMAGE}
 # - HOOK_CONTAINER_EMBEDDED_IMAGE: ${HOOK_CONTAINER_EMBEDDED_IMAGE}
+# - HOOK_CONTAINER_TINK_AGENT_IMAGE: ${HOOK_CONTAINER_TINK_AGENT_IMAGE}
 # Linuxkit-based images:
 # - HOOK_CONTAINER_LINUXKIT_RNGD_IMAGE: ${HOOK_CONTAINER_LINUXKIT_RNGD_IMAGE}
 # - HOOK_CONTAINER_LINUXKIT_GETTY_IMAGE: ${HOOK_CONTAINER_LINUXKIT_GETTY_IMAGE}
@@ -52,11 +53,11 @@ onboot:
 
   - name: modprobe
     image: "${HOOK_CONTAINER_LINUXKIT_MODPROBE_IMAGE}"
-    command: [ "modprobe", "cdc_ncm" ] # for usb ethernet dongles
+    command: [ "/sbin/modprobe", "cdc_ncm" ] # for usb ethernet dongles
 
   - name: modprobe-rnpgbe
     image: "${HOOK_CONTAINER_LINUXKIT_MODPROBE_IMAGE}"
-    command: [ "modprobe", "rnpgbe" ]
+    command: [ "/sbin/modprobe", "rnpgbe" ]
 
   - name: udev
     image: "${HOOK_CONTAINER_UDEV_IMAGE}"
@@ -82,6 +83,7 @@ onboot:
     binds.add:
       - /var/lib/dhcpcd:/var/lib/dhcpcd
       - /run:/run
+      - /etc/resolv.conf:/etc/resolv.conf
       - /etc/ip/dhcp.sh:/etc/ip/dhcp.sh
       - /dhcpcd.conf:/dhcpcd.conf
     runtime:
@@ -109,6 +111,7 @@ services:
       - path: all
         type: c
 
+#HOOK_ACPI_SERVICE_BEGIN
   - name: acpi
     image: "${HOOK_CONTAINER_ACPID_IMAGE}"
     capabilities:
@@ -122,6 +125,7 @@ services:
         type: b
       - path: all
         type: c
+#HOOK_ACPI_SERVICE_END
 
   - name: getty
     image: "${HOOK_CONTAINER_LINUXKIT_GETTY_IMAGE}"
@@ -205,6 +209,7 @@ services:
       minor: 1
       mode: "0666"
 
+#HOOK_DOCKER_SERVICE_BEGIN
   - name: hook-docker
     image: "${HOOK_CONTAINER_DOCKER_IMAGE}"
     capabilities:
@@ -234,6 +239,7 @@ services:
       type: b
     - path: all
       type: c
+#HOOK_DOCKER_SERVICE_END
 
   - name: hook-bootkit
     image: "${HOOK_CONTAINER_BOOTKIT_IMAGE}"
@@ -246,9 +252,29 @@ services:
         destination: /sys/fs/cgroup
     binds:
       - /var/run/docker:/var/run
+      - /var/run/worker:/var/run/worker
+      - /run:/run
+      - /usr/bin/nerdctl:/usr/bin/nerdctl
+      - /etc/resolv.conf:/etc/resolv.conf
+      - /etc/ssl/certs:/etc/ssl/certs
+      - /var/lib/containerd:/var/lib/containerd
+      - /var/lib/nerdctl:/var/lib/nerdctl
+#HOOK_LOONG64_AGENT_IMAGE_BEGIN
+      - /run/images/tink-agent-loong64.tar:/run/tink-agent-image.tar:ro
+#HOOK_LOONG64_AGENT_IMAGE_END
+#HOOK_LOONG64_AGENT_IMAGE_BEGIN
+    env:
+      - PATH=/usr/bin:/bin
+      - HOOK_BOOTKIT_TINK_WORKER_IMAGE_OCI=/run/tink-agent-image.tar
+      - HOOK_BOOTKIT_TINK_WORKER_IMAGE_OCI_REF=${HOOK_CONTAINER_TINK_AGENT_IMAGE}
+#HOOK_LOONG64_AGENT_IMAGE_END
     runtime:
       mkdir:
         - /var/run/docker
+        - /var/run/worker
+        - /var/lib/containerd
+        - /var/lib/nerdctl
+        - /tmp
   
   - name: dhcpcd-daemon
     image: "${HOOK_CONTAINER_LINUXKIT_DHCPCD_IMAGE}"
@@ -260,6 +286,7 @@ services:
     binds.add:
       - /var/lib/dhcpcd:/var/lib/dhcpcd
       - /run:/run
+      - /etc/resolv.conf:/etc/resolv.conf
       - /etc/ip/dhcp.sh:/etc/ip/dhcp.sh
       - /dhcpcd.conf:/dhcpcd.conf
     runtime:
@@ -279,8 +306,20 @@ services:
 files:
   - path: etc/profile.d/local.sh
     contents: |
-      alias       docker='nerdctl -n services.linuxkit exec -it hook-docker docker'
-      alias docker-shell='nerdctl -n services.linuxkit exec -it hook-docker sh'
+      docker() {
+        if nerdctl -n services.linuxkit container inspect hook-docker >/dev/null 2>&1; then
+          nerdctl -n services.linuxkit exec -it hook-docker docker "$@"
+        else
+          nerdctl "$@"
+        fi
+      }
+      docker-shell() {
+        if nerdctl -n services.linuxkit container inspect hook-docker >/dev/null 2>&1; then
+          nerdctl -n services.linuxkit exec -it hook-docker sh
+        else
+          cd /host_root && sh
+        fi
+      }
       export PS1='HookOS ${HOOK_VERSION}:\w\$ '
       # only print WARNING or higher kernel messages to console
       echo 4 > /proc/sys/kernel/printk
